@@ -35,7 +35,7 @@
 
 typedef struct TGA_HEADER {
 	byte	id_size, colormap_type, image_type;
-	short	width, height;
+	short	origin_x, origin_y, width, height;
 	byte	bpp, img_descriptor;
 	
 }TgaHeader;
@@ -54,6 +54,8 @@ typedef struct COLOUR {
 
 TgaImage* TgaImage_readRGB(FILE *pFile, TgaHeader *header);
 TgaImage* TgaImage_readRLE(FILE *pFile, TgaHeader *header);
+
+Colour TgaImage_nextPixel(FILE *pFile, TgaHeader *header);
 Colour TgaImage_decode16(const short c);
 Colour TgaImage_decode24(const int c);
 Colour TgaImage_decode32(const int c);
@@ -70,7 +72,7 @@ TgaImage* TgaImage_new(const char* filename) {
 		fread(header, 3, 1, pFile);
 		
 		fseek(pFile, 12, SEEK_SET);
-		fread(&(header->width), 6, 1, pFile);
+		fread(&(header->width), 10, 1, pFile);
 		
 		fseek(pFile, 18+header->id_size, SEEK_SET);
 		
@@ -120,21 +122,9 @@ TgaImage* TgaImage_readRGB(FILE *pFile, TgaHeader *header) {
 	this->height = header->height;
 	
 	int i;
-	Colour colour;
 	for(i = 0; i < data_size;i+=4) {
-		if(header->bpp == 16) {
-			short d;
-			fread(&d, 2, 1, pFile);
-			colour = TgaImage_decode16(d);
-		} else if(header->bpp == 24) {
-			int d;
-			fread(&d, 3, 1, pFile);
-			colour = TgaImage_decode24(d);
-		} else if(header->bpp == 32) {
-			int d;
-			fread(&d, 4, 1, pFile);
-			colour = TgaImage_decode32(d);
-		}
+		
+		Colour colour = TgaImage_nextPixel(pFile, header);
 		
 		this->data[i] = colour.r;
 		this->data[i+1] = colour.g;
@@ -147,9 +137,69 @@ TgaImage* TgaImage_readRGB(FILE *pFile, TgaHeader *header) {
 }
 
 TgaImage* TgaImage_readRLE(FILE *pFile, TgaHeader *header) {
-	//TODO: Implement this
+
+	TgaImage *this = (TgaImage*)malloc(sizeof(TgaImage));
 	
-	return 0;
+	int data_size = (header->width*4) * header->height;
+	this->data = (unsigned char*)malloc( data_size*sizeof(unsigned char) );
+	
+	this->bpp = 32;
+	this->width = header->width;
+	this->height = header->height;
+	
+	int i = 0;
+	while( i < data_size ) {
+		unsigned char h;
+		fread(&h, 1, 1, pFile);
+		
+		if( (h>>7) == 1 ) { //RLE
+			unsigned char rle_count = h - 127;
+			
+			Colour colour = TgaImage_nextPixel(pFile, header);
+			int j;
+			for(j = 0; j < rle_count*4; j+= 4) {
+				this->data[i+j] = colour.r;
+				this->data[i+j+1] = colour.g;
+				this->data[i+j+2] = colour.b;
+				this->data[i+j+3] = colour.a;
+			}
+			i+= rle_count*4;
+			
+		} else { //RAW
+			byte raw_count = h+1;
+	
+			int j;
+			for(j = 0; j < raw_count*4; j+= 4) {
+				Colour colour = TgaImage_nextPixel(pFile, header);
+				this->data[i+j] = colour.r;
+				this->data[i+j+1] = colour.g;
+				this->data[i+j+2] = colour.b;
+				this->data[i+j+3] = colour.a;
+			}
+			i += raw_count*4;
+		}
+	}
+	return this;
+}
+
+Colour TgaImage_nextPixel(FILE *pFile, TgaHeader *header) {
+	Colour colour;
+	
+	if(header->bpp == 16) {
+		short d;
+		fread(&d, 2, 1, pFile);
+		colour = TgaImage_decode16(d);
+	} else if(header->bpp == 24) {
+		int d;
+		fread(&d, 3, 1, pFile);
+		colour = TgaImage_decode24(d);
+	} else if(header->bpp == 32) {
+		int d;
+		fread(&d, 4, 1, pFile);
+		colour = TgaImage_decode32(d);
+	}
+	
+	return colour;
 }
 
 Colour TgaImage_decode16(const short c) {
@@ -159,10 +209,10 @@ Colour TgaImage_decode16(const short c) {
 Colour TgaImage_decode24(const int c) {
 	Colour cl;
 	
+	cl.a = 0xFF;
 	cl.r = (c>>16)&0xFF;
 	cl.g = (c>>8)&0xFF;
 	cl.b = c&0xFF;
-	cl.a = 0xFF;
 	
 	return cl;
 }
@@ -170,10 +220,10 @@ Colour TgaImage_decode24(const int c) {
 Colour TgaImage_decode32(const int c) {
 	Colour cl;
 	
-	cl.r = c>>24;
-	cl.g = (c>>16)&0xFF;
-	cl.b = (c>>8)&0xFF;
-	cl.a = c&0xFF;
+	cl.a = c>>24;
+	cl.r = (c>>16)&0xFF;
+	cl.g = (c>>8)&0xFF;
+	cl.b = c&0xFF;
 	
 	return cl;
 }
