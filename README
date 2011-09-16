@@ -1,1 +1,18 @@
 Reading TGA images made easy.
+
+Simple example for loading a texture to OpenGL
+------------------------------------------------
+
+TgaImage *img = TgaImage_new("foo.tga");
+		
+GLuint id;
+glEnable(GL_TEXTURE_2D);
+
+glGenTextures(1, &id);
+glBindTexture(GL_TEXTURE_2D, id);
+		
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, TgaImage_getWidth(img), TgaImage_getHeight(img), 0, GL_RGBA, GL_UNSIGNED_BYTE, TgaImage_getData(img));
+		
+TgaImage_destroy(img);
