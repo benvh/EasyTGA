@@ -114,6 +114,7 @@ unsigned char* TgaImage_getData(TgaImage *this) {
 TgaImage* TgaImage_readRGB(FILE *pFile, TgaHeader *header) {
 	TgaImage *this = (TgaImage*)malloc(sizeof(TgaImage));
 	
+	int i;
 	int data_size = (header->width*4) * header->height;
 	this->data = (unsigned char*)malloc( data_size*sizeof(unsigned char) );
 	
@@ -121,7 +122,6 @@ TgaImage* TgaImage_readRGB(FILE *pFile, TgaHeader *header) {
 	this->width = header->width;
 	this->height = header->height;
 	
-	int i;
 	for(i = 0; i < data_size;i+=4) {
 		
 		Colour colour = TgaImage_nextPixel(pFile, header);
@@ -140,6 +140,7 @@ TgaImage* TgaImage_readRLE(FILE *pFile, TgaHeader *header) {
 
 	TgaImage *this = (TgaImage*)malloc(sizeof(TgaImage));
 	
+	int i = 0;
 	int data_size = (header->width*4) * header->height;
 	this->data = (unsigned char*)malloc( data_size*sizeof(unsigned char) );
 	
@@ -147,7 +148,6 @@ TgaImage* TgaImage_readRLE(FILE *pFile, TgaHeader *header) {
 	this->width = header->width;
 	this->height = header->height;
 	
-	int i = 0;
 	while( i < data_size ) {
 		unsigned char h;
 		fread(&h, 1, 1, pFile);
